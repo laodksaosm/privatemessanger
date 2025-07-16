@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🔐 Private Chat with Friend</title>
+  <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #e9f5ff;
+    }
+    h2 { color: #2c3e50; }
+    textarea {
+      width: 100%;
+      height: 100px;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    #messages {
+      background: white;
+      border: 1px solid #ccc;
+      height: 200px;
+      overflow-y: auto;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    input[type="text"] {
+      width: 80%;
+      padding: 10px;
+      font-size: 14px;
+    }
+    button {
+      padding: 10px;
+      margin: 5px 0;
+      font-size: 15px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>🔐 Private Chat with Your Friend</h2>
+
+  <div id="messages"></div>
+
+  <input type="text" id="chatInput" placeholder="Type your message..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <h3>Step 1: Create Chat Offer</h3>
+  <button onclick="createOffer()">Create Chat Offer</button>
+  <textarea id="offer"></textarea>
+
+  <h3>Step 2: Paste Offer → Generate Answer</h3>
+  <button onclick="createAnswer()">Answer Chat</button>
+  <textarea id="answer"></textarea>
+
+  <h3>Step 3: Paste Answer to Connect</h3>
+  <button onclick="connect()">Connect</button>
+
+  <script>
+    let peer;
+
+    function createOffer() {
+      peer = new SimplePeer({ initiator: true, trickle: false });
+
+      peer.on('signal', data => {
+        document.getElementById('offer').value = JSON.stringify(data);
+      });
+
+      setupPeerEvents();
+    }
+
+    function createAnswer() {
+      const offer = JSON.parse(document.getElementById('offer').value);
+
+      peer = new SimplePeer({ initiator: false, trickle: false });
+      peer.signal(offer);
+
+      peer.on('signal', data => {
+        document.getElementById('answer').value = JSON.stringify(data);
+      });
+
+      setupPeerEvents();
+    }
+
+    function connect() {
+      const answer = JSON.parse(document.getElementById('answer').value);
+      peer.signal(answer);
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const message = input.value;
+      if (message.trim() === '') return;
+      peer.send(message);
+      appendMessage(`🟢 You: ${message}`);
+      input.value = '';
+    }
+
+    function setupPeerEvents() {
+      peer.on('data', data => {
+        appendMessage(`🔵 Friend: ${data}`);
+      });
+
+      peer.on('connect', () => {
+        appendMessage("✅ Connected securely! You can start chatting.");
+      });
+
+      peer.on('error', err => {
+        appendMessage(`❌ Error: ${err.message}`);
+      });
+
+      peer.on('close', () => {
+        appendMessage("🚫 Chat closed.");
+      });
+    }
+
+    function appendMessage(msg) {
+      const msgDiv = document.getElementById('messages');
+      const p = document.createElement('p');
+      p.textContent = msg;
+      msgDiv.appendChild(p);
+      msgDiv.scrollTop = msgDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>
