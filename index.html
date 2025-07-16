@@ -2,24 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>🔐 Private Chat with Friend</title>
+  <title>🔐 Secure Chat with Friend</title>
   <script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
       padding: 20px;
-      background: #e9f5ff;
+      background: #e3f2fd;
     }
-    h2 { color: #2c3e50; }
-    textarea {
-      width: 100%;
-      height: 100px;
-      font-size: 14px;
-      margin-top: 5px;
-    }
+    h2 { color: #333; }
     #messages {
-      background: white;
       border: 1px solid #ccc;
+      background: #fff;
       height: 200px;
       overflow-y: auto;
       padding: 10px;
@@ -28,98 +22,123 @@
     input[type="text"] {
       width: 80%;
       padding: 10px;
-      font-size: 14px;
     }
     button {
       padding: 10px;
       margin: 5px 0;
-      font-size: 15px;
-      cursor: pointer;
+      font-size: 14px;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      margin-top: 5px;
     }
   </style>
 </head>
 <body>
-
-  <h2>🔐 Private Chat with Your Friend</h2>
+  <h2>🔐 Private Browser Chat</h2>
 
   <div id="messages"></div>
-
   <input type="text" id="chatInput" placeholder="Type your message..." />
   <button onclick="sendMessage()">Send</button>
 
-  <h3>Step 1: Create Chat Offer</h3>
+  <h3>1. Initiator: Create Offer</h3>
   <button onclick="createOffer()">Create Chat Offer</button>
-  <textarea id="offer"></textarea>
+  <textarea id="offerBox" placeholder="Offer will appear here"></textarea>
 
-  <h3>Step 2: Paste Offer → Generate Answer</h3>
+  <h3>2. Receiver: Paste Offer → Click Answer</h3>
+  <textarea id="incomingOffer" placeholder="Paste friend's offer here"></textarea>
   <button onclick="createAnswer()">Answer Chat</button>
-  <textarea id="answer"></textarea>
+  <textarea id="answerBox" placeholder="Copy this answer to send back"></textarea>
 
-  <h3>Step 3: Paste Answer to Connect</h3>
+  <h3>3. Initiator: Paste Answer & Connect</h3>
+  <textarea id="incomingAnswer" placeholder="Paste friend's answer here"></textarea>
   <button onclick="connect()">Connect</button>
 
   <script>
     let peer;
+    let isInitiator = false;
 
     function createOffer() {
+      isInitiator = true;
       peer = new SimplePeer({ initiator: true, trickle: false });
 
       peer.on('signal', data => {
-        document.getElementById('offer').value = JSON.stringify(data);
+        document.getElementById('offerBox').value = JSON.stringify(data);
       });
 
-      setupPeerEvents();
+      setupEvents();
     }
 
     function createAnswer() {
-      const offer = JSON.parse(document.getElementById('offer').value);
+      const offer = document.getElementById('incomingOffer').value;
+      if (!offer.trim()) {
+        alert("Paste a valid offer first.");
+        return;
+      }
 
       peer = new SimplePeer({ initiator: false, trickle: false });
-      peer.signal(offer);
+      peer.signal(JSON.parse(offer));
 
       peer.on('signal', data => {
-        document.getElementById('answer').value = JSON.stringify(data);
+        document.getElementById('answerBox').value = JSON.stringify(data);
       });
 
-      setupPeerEvents();
+      setupEvents();
     }
 
     function connect() {
-      const answer = JSON.parse(document.getElementById('answer').value);
-      peer.signal(answer);
+      if (!isInitiator) {
+        alert("Only the person who created the offer should click Connect.");
+        return;
+      }
+
+      const answer = document.getElementById('incomingAnswer').value;
+      if (!answer.trim()) {
+        alert("Paste your friend's answer first.");
+        return;
+      }
+
+      try {
+        peer.signal(JSON.parse(answer));
+      } catch (e) {
+        alert("Invalid answer. Make sure it's copied correctly.");
+        console.error(e);
+      }
     }
 
     function sendMessage() {
       const input = document.getElementById('chatInput');
-      const message = input.value;
-      if (message.trim() === '') return;
+      const message = input.value.trim();
+      if (!message || !peer || !peer.connected) return;
       peer.send(message);
-      appendMessage(`🟢 You: ${message}`);
+      addMessage(`🟢 You: ${message}`);
       input.value = '';
     }
 
-    function setupPeerEvents() {
-      peer.on('data', data => {
-        appendMessage(`🔵 Friend: ${data}`);
+    function setupEvents() {
+      peer.on('connect', () => {
+        addMessage("✅ Secure connection established. You can chat now.");
       });
 
-      peer.on('connect', () => {
-        appendMessage("✅ Connected securely! You can start chatting.");
+      peer.on('data', data => {
+        addMessage(`🔵 Friend: ${data}`);
       });
 
       peer.on('error', err => {
-        appendMessage(`❌ Error: ${err.message}`);
+        console.error("Peer error:", err);
+        addMessage("❌ Error occurred: " + err.message);
       });
 
       peer.on('close', () => {
-        appendMessage("🚫 Chat closed.");
+        addMessage("🔕 Connection closed.");
       });
     }
 
-    function appendMessage(msg) {
+    function addMessage(text) {
       const msgDiv = document.getElementById('messages');
       const p = document.createElement('p');
-      p.textContent = msg;
+      p.textContent = text;
       msgDiv.appendChild(p);
       msgDiv.scrollTop = msgDiv.scrollHeight;
     }
